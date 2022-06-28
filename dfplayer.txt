@@ -1,0 +1,271 @@
+#include <SoftwareSerial.h>
+#include <IRremote.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#define SCREEN_WIDTH 128 // OLED piksel
+#define SCREEN_HEIGHT 64
+Adafruit_SSD1306 display = Adafruit_SSD1306(128, 64, &Wire);
+# define Start_Byte     0x7E
+# define Version_Byte   0XFF
+# define Command_Length 0X06
+# define End_Byte       0XEF
+# define Acknowledge    0x00
+# define pause_play       2580 //dur devam
+# define pause_play2      532  //dur devam
+# define ileri            530  //bir sonraki ses
+# define ileri2           2578 //bir sonraki ses
+# define geri             531  //bir önceki  ses
+# define geri2            2579 //bir önceki  ses
+# define volumep          534  //ses+
+# define volumep2         2582 //ses+ 
+# define volumen          533  //ses-
+# define volumen2         2581 //ses-
+# define eqo              2613
+# define eqo2             565
+SoftwareSerial mySerial(10,11);
+IRrecv receiver (9);
+IRrecv irrecv(receiver);   
+decode_results dec;         
+int volume = 20;
+int eqset = 0;
+boolean Playing = false;
+
+void setup () {
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.display();
+  Serial.begin(9600);
+  irrecv.enableIRIn();     
+  mySerial.begin(9600);
+  delay(1000);
+  playFirst();
+  Playing = true;
+  display.clearDisplay();  
+  display.drawRect(45,22,34,23, WHITE);
+  display.setCursor(51,26);
+  display.println(volume);
+  display.setCursor(100,1);
+  display.println(eqset);
+  display.drawTriangle(10, 21, 32, 30, 10, 40, WHITE);
+  display.drawCircle(20, 31, 14, WHITE);
+  display.drawCircle(103, 31, 14, WHITE);
+  display.setCursor(92,25);
+  display.println("||");
+  delay(10);
+  display.display(); 
+ }
+ void loop () {  
+  if(irrecv.decode(&dec))
+ {
+    Serial.println(dec.value);
+    if (dec.value==pause_play)
+      {
+     oled();
+   if(Playing)
+      {
+     pause();
+     Playing = false;
+      }
+   else
+      {
+  display.clearDisplay();  
+  display.drawRect(45,22,34,23, WHITE);
+  display.setCursor(51,26);
+  display.println(volume);
+  display.setCursor(100,1);
+  display.println(eqset);
+  display.drawCircle(20, 31, 14, WHITE);
+  display.drawCircle(103, 31, 14, WHITE);
+  display.setCursor(92,25);
+  display.println("||");
+  delay(10);
+  display.display(); 
+  Playing = true;
+  play();
+     }}
+  if (dec.value==ileri)
+     {
+  if(Playing)
+     {
+   next();
+     }}
+  if (dec.value==ileri2)
+     {
+  if(Playing)
+     {
+   next();
+    }}
+  if (dec.value==geri)
+    {
+  if(Playing)
+    {
+   previous();
+    }}
+  if (dec.value==geri2)
+    {
+  if(Playing)
+    {
+   previous();
+    }}
+  if(dec.value==volumep)     //ses+
+    {
+   volumeINC(); 
+    }
+   if(dec.value==volumep2)  //ses+
+    {
+   volumeINC(); 
+    }
+  if(dec.value==volumen)    //ses-
+    {
+   volumeDEC();
+    }
+  if(dec.value==volumen2)   //ses-
+    {
+   volumeDEC();
+    }
+  if(dec.value==eqo)
+    {
+   equalizer();
+    }
+    if(dec.value==eqo2)
+    {
+   equalizer();
+    }
+   irrecv.resume();
+    }}
+  
+ void playFirst(){
+  
+  exe_cmd(0x3F, 0, 0);
+  delay(100);
+  exe_cmd(0x06, 0, volume); 
+  delay(100);
+  exe_cmd(0x11,0,1); 
+  delay(100);
+   }  
+   
+ void oled(){
+  if(irrecv.decode(&dec))
+   {
+   Serial.println(dec.value); // Here you can get your remote's buttons codes
+  if (dec.value==pause_play)
+   {
+  display.clearDisplay();  
+  display.drawRect(45,22,34,23, WHITE);
+  display.setCursor(51,26);
+  display.println(volume);
+  display.setCursor(100,1);
+  display.println(eqset);
+  display.fillTriangle(10, 21, 32, 30, 10, 40, WHITE);
+  display.drawCircle(20, 31, 14, WHITE);
+  display.drawCircle(103, 31, 14, WHITE);
+  delay(10);
+  display.display(); 
+   }
+  irrecv.resume();
+   }}
+ void pause(){
+
+  exe_cmd(0x0E,0,0);
+  delay(100); 
+}
+
+ void play()
+{
+  exe_cmd(0x0D,0,1); 
+  delay(100);
+}
+
+ void next()
+   {
+  exe_cmd(0x01,0,1);
+  delay(100);
+}
+ void previous()
+   {
+ exe_cmd(0x02,0,1);
+  delay(100);
+}
+
+ void volumeINC()
+{
+  display.clearDisplay();  
+  display.drawRect(45,22,34,23, WHITE);
+  display.setCursor(51,26);
+  display.println(volume);
+  display.setCursor(100,1);
+  display.println(eqset);
+  display.drawTriangle(10, 21, 32, 30, 10, 40, WHITE);
+  display.drawCircle(20, 31, 14, WHITE);
+  display.drawCircle(103, 31, 14, WHITE);
+  display.setCursor(92,25);
+  display.println("||");
+  delay(10);
+  display.display();
+  volume = volume+1;
+  
+  if(volume == 31)
+   {
+    volume = 30;
+   }
+  exe_cmd(0x06, 0, volume); 
+  delay(100);
+}
+ void volumeDEC(){
+  display.clearDisplay();  
+   display.drawRect(45,22,34,23, WHITE);
+  display.setCursor(51,26);
+   display.println(volume);
+   display.setCursor(100,1);
+  display.println(eqset);
+   display.drawTriangle(10, 21, 32, 30, 10, 40, WHITE);
+  display.drawCircle(20, 31, 14, WHITE);
+  display.drawCircle(103, 31, 14, WHITE);
+  display.setCursor(92,25);
+  display.println("||");
+   delay(10);
+   display.display();  
+    
+   volume = volume-1;
+  
+  if(volume == -1)
+   {
+    volume = 0;
+   }
+  exe_cmd(0x06, 0, volume); 
+  delay(100);
+}
+ void equalizer(){
+  eqset = eqset+1;
+  display.clearDisplay();  
+  display.drawRect(45,22,34,23, WHITE);
+  display.setCursor(100,1);
+  display.println(eqset);
+  display.setCursor(51,26);
+  display.println(volume);
+  display.drawTriangle(10, 21, 32, 30, 10, 40, WHITE);
+  display.drawCircle(20, 31, 14, WHITE);
+  display.drawCircle(103, 31, 14, WHITE);
+  display.setCursor(92,25);
+  display.println("||");
+  delay(10);
+  display.display();  
+  if(eqset == 6)
+   {
+   eqset = 0;
+   }
+   exe_cmd(0x07, 0, eqset);
+   delay(100);
+   }
+ void exe_cmd(byte CMD, byte Par1, byte Par2){
+    word checksum = -(Version_Byte + Command_Length + CMD + Acknowledge + Par1 + Par2);
+    byte Command_line[10] = {Start_Byte, Version_Byte, Command_Length, CMD, Acknowledge,
+                            Par1, Par2, highByte(checksum), lowByte(checksum), End_Byte};
+ for (byte x=0; x<10; x++)
+   {
+  mySerial.write(Command_line[x]);
+   }}
